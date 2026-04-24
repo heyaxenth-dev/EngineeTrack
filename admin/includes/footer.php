@@ -25,6 +25,8 @@
 <script src="assets/vendor/simple-datatables/simple-datatables.js"></script>
 <script src="assets/vendor/tinymce/tinymce.min.js"></script>
 <script src="assets/vendor/php-email-form/validate.js"></script>
+<!-- <script src="api/"></script> -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.20/index.global.min.js'></script>
 
 <!-- Template Main JS File -->
 <script src="assets/js/main.js"></script>
