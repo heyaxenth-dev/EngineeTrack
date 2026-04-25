@@ -1,4 +1,6 @@
 <?php 
+// Include the database connection file
+include '../database/conn.php';
  // Get the current script name
     $current_page = basename($_SERVER['PHP_SELF'], ".php");
 
@@ -6,8 +8,33 @@
     // 'Dashboard' => 'home',
     'dashboard' => 'Dashboard',
     'schedule-reservation' => 'Schedule and Reservation',
+    'utilization' => 'Utilization',
+    'equipment-inventory' => 'Equipment and Inventory',
+    'reports' => 'Reports',
+    'user-management' => 'User Management',
+    'users-profile' => 'User Profile',
     // 'users-profile' => $user_firstname . " " . $user_lastname . "'s Profile",
     ];
+
+    // Log in credentials: admin uses admin table, staff uses users table
+    if (!empty($_SESSION['is_authenticated']) && $_SESSION['is_authenticated'] === true && $_SESSION['user_role'] === 'admin' || $_SESSION['user_role'] === 'administrator') 
+    {
+        $username = $_SESSION['username'] ?? '';
+        $email = $_SESSION['email'] ?? '';
+        $fname = $_SESSION['firstname'] ?? '';
+        $lname = $_SESSION['lastname'] ?? '';
+        $fullname = trim($fname . ' ' . $lname) ?: $username;
+        $shortend_name = $fname ? (substr($fname, 0, 1) . '. ' . $lname) : $username;
+        $role = 'Admin';
+    } else {
+        $username = $_SESSION['username'] ?? '';
+        $email = $_SESSION['email'] ?? '';
+        $fname = $_SESSION['firstname'] ?? '';
+        $lname = $_SESSION['lastname'] ?? '';
+        $fullname = trim($fname . ' ' . $lname) ?: $username;
+        $shortend_name = $fname ? (substr($fname, 0, 1) . '. ' . $lname) : $username;
+        $role = 'Staff';
+    }
 ?>
 
 <!doctype html>

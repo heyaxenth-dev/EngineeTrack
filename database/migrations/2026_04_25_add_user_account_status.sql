@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN account_status TINYINT(1) NOT NULL DEFAULT 1 AFTER role;

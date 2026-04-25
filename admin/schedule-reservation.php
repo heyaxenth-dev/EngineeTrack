@@ -1,14 +1,16 @@
-<?php 
+<?php
+include 'includes/authentication.php'; 
 include 'includes/header.php';
 include 'includes/sidebar.php';
+include 'alert.php';
 ?>
 <main id="main" class="main">
     <div class="pagetitle">
-        <h1>Schedule and Reservation</h1>
+        <h1><?= $renamed_pages[$current_page] ?></h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-                <li class="breadcrumb-item active">Schedule and Reservation</li>
+                <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
+                <li class="breadcrumb-item active"><?= $renamed_pages[$current_page] ?></li>
             </ol>
         </nav>
     </div>
@@ -156,9 +158,9 @@ include 'includes/sidebar.php';
                                     <i class="bi bi-clock"></i> 10:00 AM - 11:00 AM
                                 </span>
 
-                                <div class="d-grid gap-2 d-block mt-4">
-                                    <button class="btn btn-success" type="button">Approve</button>
-                                    <button class="btn btn-danger" type="button">Reject</button>
+                                <div class="gap-2 d-flex mt-4">
+                                    <button class="btn btn-success w-50" type="button">Approve</button>
+                                    <button class="btn btn-danger w-50" type="button">Reject</button>
                                 </div>
                             </div>
                         </div>

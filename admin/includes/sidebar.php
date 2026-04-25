@@ -5,7 +5,7 @@ function get_page_link($page_name) {
     if (file_exists($file_path)) {
         return $file_path;
     } else {
-       return 'pages-error-404.html';
+       return 'page-error-404.php';
     }
 }
 ?>
@@ -77,7 +77,7 @@ function get_page_link($page_name) {
         <!-- End Profile Page Nav -->
 
         <li class="nav-item">
-            <a class="nav-link collapsed" href="pages-login.html">
+            <a class="nav-link collapsed" href="logout.php">
                 <i class="bi bi-box-arrow-in-left"></i>
                 <span>Log out</span>
             </a>
