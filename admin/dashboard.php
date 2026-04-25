@@ -1,5 +1,81 @@
 <?php
-include 'includes/authentication.php'; 
+include 'includes/authentication.php';
+include '../database/conn.php';
+
+$schema_ready = true;
+$unreturned_equipment = 0;
+$maintenance_items = 0;
+$scheduled_venues = 0;
+$borrowed_items_total = 0;
+$returned_items_total = 0;
+$most_borrowed_labels = [];
+$most_borrowed_values = [];
+
+function h($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function table_exists($conn, $table_name) {
+    $safe_table = mysqli_real_escape_string($conn, $table_name);
+    $result = mysqli_query($conn, "SHOW TABLES LIKE '{$safe_table}'");
+    return $result && mysqli_num_rows($result) > 0;
+}
+
+$required_tables = ['equipment_items', 'reservation_requests', 'reservation_request_items'];
+foreach ($required_tables as $table_name) {
+    if (!table_exists($conn, $table_name)) {
+        $schema_ready = false;
+        break;
+    }
+}
+
+if ($schema_ready) {
+    $equipment_totals_result = mysqli_query($conn, "
+        SELECT
+            COALESCE(SUM(total_quantity - available_quantity), 0) AS borrowed_total,
+            COALESCE(SUM(available_quantity), 0) AS available_total,
+            SUM(CASE WHEN is_active = 1 AND available_quantity <= 10 THEN 1 ELSE 0 END) AS low_stock_count
+        FROM equipment_items
+    ");
+    if ($equipment_totals_result && $equipment_row = mysqli_fetch_assoc($equipment_totals_result)) {
+        $borrowed_items_total = (int) $equipment_row['borrowed_total'];
+        $returned_items_total = (int) $equipment_row['available_total'];
+        $unreturned_equipment = $borrowed_items_total;
+        $maintenance_items = (int) $equipment_row['low_stock_count'];
+    }
+
+    $venues_result = mysqli_query($conn, "
+        SELECT COUNT(DISTINCT rri.resource_id) AS booked_venues
+        FROM reservation_request_items rri
+        INNER JOIN reservation_requests rr ON rr.id = rri.reservation_request_id
+        WHERE rri.item_type = 'venue'
+          AND rr.status = 'approved'
+          AND rr.end_datetime >= NOW()
+    ");
+    if ($venues_result && $venues_row = mysqli_fetch_assoc($venues_result)) {
+        $scheduled_venues = (int) $venues_row['booked_venues'];
+    }
+
+    $most_borrowed_result = mysqli_query($conn, "
+        SELECT
+            rri.resource_name,
+            SUM(rri.quantity) AS total_borrowed
+        FROM reservation_request_items rri
+        INNER JOIN reservation_requests rr ON rr.id = rri.reservation_request_id
+        WHERE rri.item_type = 'equipment'
+          AND rr.status IN ('approved', 'pending')
+        GROUP BY rri.resource_id, rri.resource_name
+        ORDER BY total_borrowed DESC
+        LIMIT 5
+    ");
+    if ($most_borrowed_result) {
+        while ($row = mysqli_fetch_assoc($most_borrowed_result)) {
+            $most_borrowed_labels[] = $row['resource_name'];
+            $most_borrowed_values[] = (int) $row['total_borrowed'];
+        }
+    }
+}
+
 include 'includes/header.php';
 include 'includes/sidebar.php';
 include 'alert.php';
@@ -14,308 +90,145 @@ include 'alert.php';
             </ol>
         </nav>
     </div>
-    <!-- End Page Title -->
 
     <section class="section dashboard">
-        <div class="row">
-
-            <div class="row">
-                <!-- Center card row -->
-
-                <!-- Overdue Items Card -->
-                <div class="col-xxl-4 col-md-4">
-                    <div class="card info-card overdue-items-card">
-                        <!-- <div class="filter">
-                                <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
-                                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                                    <li class="dropdown-header text-start">
-                                        <h6>Filter</h6>
-                                    </li>
-
-                                    <li><a class="dropdown-item" href="#">Today</a></li>
-                                    <li><a class="dropdown-item" href="#">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#">This Year</a></li>
-                                </ul>
-                            </div> -->
-
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                Overdue Items
-                            </h5>
-
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>$3,264</h6>
-                                    <span class="text-success small pt-1 fw-bold">8%</span>
-                                    <span class="text-muted small pt-2 ps-1">increase</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- End Overdue Items Card -->
-
-                <!-- For Maintenance Card -->
-                <div class="col-xxl-4 col-md-4">
-                    <div class="card info-card for-maintenance-card">
-                        <!-- <div class="filter">
-                                <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
-                                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                                    <li class="dropdown-header text-start">
-                                        <h6>Filter</h6>
-                                    </li>
-
-                                    <li><a class="dropdown-item" href="#">Today</a></li>
-                                    <li><a class="dropdown-item" href="#">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#">This Year</a></li>
-                                </ul>
-                            </div> -->
-
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                For Maintenance
-                            </h5>
-
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                                    <i class="bi bi-tools"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>1244</h6>
-                                    <span class="text-danger small pt-1 fw-bold">12%</span>
-                                    <span class="text-muted small pt-2 ps-1">decrease</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- End For Maintenance Card -->
-
-                <!-- Booked Events Card -->
-                <div class="col-xxl-4 col-md-4">
-                    <div class="card info-card booked-events-card">
-                        <!-- <div class="filter">
-                                <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
-                                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                                    <li class="dropdown-header text-start">
-                                        <h6>Filter</h6>
-                                    </li>
-
-                                    <li><a class="dropdown-item" href="#">Today</a></li>
-                                    <li><a class="dropdown-item" href="#">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#">This Year</a></li>
-                                </ul>
-                            </div> -->
-
-                        <div class="card-body">
-                            <h5 class="card-title">Booked Events </h5>
-
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                                    <i class="bi bi-calendar2-week"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>145</h6>
-                                    <span class="text-success small pt-1 fw-bold">12%</span>
-                                    <span class="text-muted small pt-2 ps-1">increase</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- End Booked Events Card -->
-            </div> <!-- End Center card row -->
-
-
-            <!-- Left side columns -->
-            <div class="col-lg-6">
-                <!-- Reports -->
-                <div class="col-12">
-                    <div class="card">
-                        <!-- <div class="filter">
-                                <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
-                                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                                    <li class="dropdown-header text-start">
-                                        <h6>Filter</h6>
-                                    </li>
-
-                                    <li><a class="dropdown-item" href="#">Today</a></li>
-                                    <li><a class="dropdown-item" href="#">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#">This Year</a></li>
-                                </ul>
-                            </div> -->
-
-                        <div class="card-body">
-                            <h5 class="card-title">Reports <span>/Today</span></h5>
-
-                            <!-- Line Chart -->
-                            <div id="reportsChart"></div>
-
-                            <script>
-                            document.addEventListener('DOMContentLoaded', () => {
-                                new ApexCharts(
-                                    document.querySelector('#reportsChart'), {
-                                        series: [{
-                                                name: 'Sales',
-                                                data: [31, 40, 28, 51, 42, 82, 56],
-                                            },
-                                            {
-                                                name: 'Revenue',
-                                                data: [11, 32, 45, 32, 34, 52, 41],
-                                            },
-                                            {
-                                                name: 'Customers',
-                                                data: [15, 11, 32, 18, 9, 24, 11],
-                                            },
-                                        ],
-                                        chart: {
-                                            height: 350,
-                                            type: 'area',
-                                            toolbar: {
-                                                show: false,
-                                            },
-                                        },
-                                        markers: {
-                                            size: 4,
-                                        },
-                                        colors: ['#4154f1', '#2eca6a', '#ff771d'],
-                                        fill: {
-                                            type: 'gradient',
-                                            gradient: {
-                                                shadeIntensity: 1,
-                                                opacityFrom: 0.3,
-                                                opacityTo: 0.4,
-                                                stops: [0, 90, 100],
-                                            },
-                                        },
-                                        dataLabels: {
-                                            enabled: false,
-                                        },
-                                        stroke: {
-                                            curve: 'smooth',
-                                            width: 2,
-                                        },
-                                        xaxis: {
-                                            type: 'datetime',
-                                            categories: [
-                                                '2018-09-19T00:00:00.000Z',
-                                                '2018-09-19T01:30:00.000Z',
-                                                '2018-09-19T02:30:00.000Z',
-                                                '2018-09-19T03:30:00.000Z',
-                                                '2018-09-19T04:30:00.000Z',
-                                                '2018-09-19T05:30:00.000Z',
-                                                '2018-09-19T06:30:00.000Z',
-                                            ],
-                                        },
-                                        tooltip: {
-                                            x: {
-                                                format: 'dd/MM/yy HH:mm',
-                                            },
-                                        },
-                                    },
-                                ).render();
-                            });
-                            </script>
-                            <!-- End Line Chart -->
-                        </div>
-                    </div>
-                </div>
-                <!-- End Reports -->
+        <?php if (!$schema_ready): ?>
+            <div class="alert alert-warning">
+                Dashboard data tables are not ready yet. Run `database/migrations/2026_04_25_create_staff_reservation_tables.sql`
+                and refresh this page.
             </div>
-            <!-- End Left side columns -->
+        <?php endif; ?>
 
-            <!-- Right side columns -->
+        <div class="row g-3 mb-3">
+            <div class="col-lg-4 col-md-6">
+                <div class="card border-0 shadow-sm" style="background: #f23d3d; color: #fff;">
+                    <div class="card-body d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <h4 class="mb-0"><?= $unreturned_equipment ?></h4>
+                            <small>Unreturned Equipment</small>
+                        </div>
+                        <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="card border-0 shadow-sm" style="background: #ff8a00; color: #fff;">
+                    <div class="card-body d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <h4 class="mb-0"><?= $maintenance_items ?></h4>
+                            <small>For Maintenance (Low Stock)</small>
+                        </div>
+                        <i class="bi bi-tools fs-2"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <div class="card border-0 shadow-sm" style="background: #1f7ed0; color: #fff;">
+                    <div class="card-body d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <h4 class="mb-0"><?= $scheduled_venues ?></h4>
+                            <small>Scheduled Utilized Venue</small>
+                        </div>
+                        <i class="bi bi-calendar2-week fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
             <div class="col-lg-6">
-                <!-- Recent Activity -->
-                <div class="card">
-                    <!-- <div class="filter">
-                        <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
-                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                            <li class="dropdown-header text-start">
-                                <h6>Filter</h6>
-                            </li>
-
-                            <li><a class="dropdown-item" href="#">Today</a></li>
-                            <li><a class="dropdown-item" href="#">This Month</a></li>
-                            <li><a class="dropdown-item" href="#">This Year</a></li>
-                        </ul>
-                    </div> -->
-
+                <div class="card shadow-sm">
                     <div class="card-body">
-                        <h5 class="card-title">Recent Activity <span>| Today</span></h5>
-
-                        <div class="activity">
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">32 min</div>
-                                <i class="bi bi-circle-fill activity-badge text-success align-self-start"></i>
-                                <div class="activity-content">
-                                    Quia quae rerum
-                                    <a href="#" class="fw-bold text-dark">explicabo officiis</a>
-                                    beatae
-                                </div>
+                        <h5 class="card-title">Recent Activity</h5>
+                        <?php
+                        $activity_total = max(1, $borrowed_items_total + $returned_items_total + $maintenance_items);
+                        $borrowed_pct = min(100, round(($borrowed_items_total / $activity_total) * 100));
+                        $returned_pct = min(100, round(($returned_items_total / $activity_total) * 100));
+                        $maintenance_pct = min(100, round(($maintenance_items / $activity_total) * 100));
+                        ?>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <small>Borrowed: <?= $borrowed_items_total ?> items</small>
+                                <small><?= $borrowed_pct ?>%</small>
                             </div>
-                            <!-- End activity item-->
-
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">56 min</div>
-                                <i class="bi bi-circle-fill activity-badge text-danger align-self-start"></i>
-                                <div class="activity-content">
-                                    Voluptatem blanditiis blanditiis eveniet
-                                </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-primary" style="width: <?= $borrowed_pct ?>%"></div>
                             </div>
-                            <!-- End activity item-->
-
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">2 hrs</div>
-                                <i class="bi bi-circle-fill activity-badge text-primary align-self-start"></i>
-                                <div class="activity-content">
-                                    Voluptates corrupti molestias voluptatem
-                                </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <small>Returned/Available: <?= $returned_items_total ?> items</small>
+                                <small><?= $returned_pct ?>%</small>
                             </div>
-                            <!-- End activity item-->
-
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">1 day</div>
-                                <i class="bi bi-circle-fill activity-badge text-info align-self-start"></i>
-                                <div class="activity-content">
-                                    Tempore autem saepe
-                                    <a href="#" class="fw-bold text-dark">occaecati voluptatem</a>
-                                    tempore
-                                </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-success" style="width: <?= $returned_pct ?>%"></div>
                             </div>
-                            <!-- End activity item-->
-
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">2 days</div>
-                                <i class="bi bi-circle-fill activity-badge text-warning align-self-start"></i>
-                                <div class="activity-content">
-                                    Est sit eum reiciendis exercitationem
-                                </div>
+                        </div>
+                        <div>
+                            <div class="d-flex justify-content-between">
+                                <small>Maintenance: <?= $maintenance_items ?> items</small>
+                                <small><?= $maintenance_pct ?>%</small>
                             </div>
-                            <!-- End activity item-->
-
-                            <div class="activity-item d-flex">
-                                <div class="activite-label">4 weeks</div>
-                                <i class="bi bi-circle-fill activity-badge text-muted align-self-start"></i>
-                                <div class="activity-content">
-                                    Dicta dolorem harum nulla eius. Ut quidem quidem sit quas
-                                </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-warning" style="width: <?= $maintenance_pct ?>%"></div>
                             </div>
-                            <!-- End activity item-->
                         </div>
                     </div>
                 </div>
-                <!-- End Recent Activity -->
             </div>
-            <!-- End Right side columns -->
+
+            <div class="col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Most Borrowed Equipment</h5>
+                        <div id="mostBorrowedChart"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 </main>
-<!-- End #main -->
 
-<?php 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var chartEl = document.querySelector('#mostBorrowedChart');
+    if (!chartEl) return;
+
+    var labels = <?= json_encode($most_borrowed_labels) ?>;
+    var values = <?= json_encode($most_borrowed_values) ?>;
+
+    new ApexCharts(chartEl, {
+        series: [{
+            data: values
+        }],
+        chart: {
+            type: 'bar',
+            height: 320,
+            toolbar: {
+                show: false
+            }
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 4,
+                horizontal: true,
+                distributed: true
+            }
+        },
+        dataLabels: {
+            enabled: true
+        },
+        xaxis: {
+            categories: labels
+        },
+        colors: ['#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#198754'],
+        noData: {
+            text: 'No equipment usage data yet.'
+        }
+    }).render();
+});
+</script>
+
+<?php
 include 'includes/footer.php';
 ?>
