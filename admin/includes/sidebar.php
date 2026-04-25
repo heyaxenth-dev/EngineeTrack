@@ -57,6 +57,15 @@ function get_page_link($page_name) {
         </li>
         <!-- End Reports Page Nav -->
 
+        <li class="nav-item">
+            <a class="nav-link <?= ($current_page == 'user-management') ? '' : 'collapsed' ?>"
+                href="<?= get_page_link('user-management') ?>">
+                <i class="bi bi-people"></i>
+                <span>User Management</span>
+            </a>
+        </li>
+        <!-- End User Management Page Nav -->
+
         <li class="nav-heading">Personal Pages</li>
 
         <li class="nav-item">

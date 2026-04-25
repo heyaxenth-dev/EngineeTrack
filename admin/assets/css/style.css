@@ -825,6 +825,26 @@ h6 {
 	background: #ffecdf;
 }
 
+.dashboard .pending-requests-card .card-icon {
+	color: #ff771d;
+	background: #ffecdf;
+}
+
+.dashboard .approved-today-card .card-icon {
+	color: #28a745;
+	background: #d1e7dd;
+}
+
+.dashboard .active-venues-card .card-icon {
+	color: #4154f1;
+	background: #f6f6fe;
+}
+
+.dashboard .repairs-ongoing-card .card-icon {
+	color: #ca2e2e;
+	background: #f8e0e0;
+}
+
 /* Activity */
 .dashboard .activity {
 	font-size: 14px;
@@ -1172,7 +1192,7 @@ h6 {
 .error-404 h1 {
 	font-size: 180px;
 	font-weight: 700;
-	color: #4154f1;
+	color: #222;
 	margin-bottom: 0;
 	line-height: 150px;
 }
