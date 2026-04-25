@@ -4,14 +4,6 @@ include '../database/conn.php';
 
 $login_error = '';
 
-if (isset($_SESSION['is_authenticated']) && isset($_SESSION['user_role'])) {
-  $existing_role = strtolower((string) $_SESSION['user_role']);
-  if (!in_array($existing_role, ['admin', 'administrator'], true)) {
-    header('Location: ../admin/dashboard.php');
-    exit();
-  }
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $username = trim($_POST['username'] ?? '');
   $password = $_POST['password'] ?? '';
@@ -37,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_SESSION['name'] = $user['name'] ?? $user['username'];
       $_SESSION['user_role'] = $user['role'];
 
-      header('Location: ../admin/dashboard.php');
+      header('Location: ../staff/dashboard.php');
       exit();
     }
 
